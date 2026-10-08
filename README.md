@@ -17,7 +17,7 @@ Unscheduled mechanical breakdowns in mining operations carry catastrophic econom
 - **Catastrophic Secondary Damage:** Bearing seizure or drive-shaft fractures frequently destroy pinions, stator windings, and structural gearboxes.
 - **Worker Safety:** In-situ mechanical failure of pressurized or high-inertia equipment poses acute risks to field operators.
 
-This project delivers a **production-grade, physics-informed machine learning pipeline** that ingests continuous telemetry (temperatures, rotational speeds, torque, and tool wear), eliminates data leakage, mitigates extreme class imbalance (~3.4% failure rate), and trains balanced ensemble models to detect impending failures with **> 0.98 ROC-AUC** and **85.3% Recall**.
+This project delivers a **production-grade, physics-informed machine learning pipeline** that ingests continuous telemetry (temperatures, rotational speeds, torque, and tool wear), eliminates data leakage, mitigates extreme class imbalance (~3.4% failure rate), verifies model stability via **5-Fold Stratified Cross-Validation**, and provides a standalone **Inference CLI** for immediate edge deployment with **> 0.98 ROC-AUC** and **85.3% Recall**.
 
 ---
 
@@ -25,16 +25,19 @@ This project delivers a **production-grade, physics-informed machine learning pi
 
 ```mermaid
 flowchart TD
-    A["Raw IoT Sensor Data\n(predictive_maintenance.csv)"] --> B["Data Hygiene & Leakage Elimination\n- Drop UDI & Product ID\n- Remove Failure Modes / Sub-labels"]
+    A["Raw IoT Sensor Data\n(data/raw/predictive_maintenance.csv)"] --> B["Data Hygiene & Leakage Elimination\n- Drop UDI & Product ID\n- Remove Failure Modes / Sub-labels"]
     B --> C["Physics-Based Feature Engineering\n- Mechanical Power (W)\n- Delta Temperature (K)\n- Wear Strain Index"]
     C --> D["Stratified Partitioning (80:20)\nPreserving ~3.4% Failure Distribution"]
     D --> E["Leakage-Free StandardScaler\nfit_transform(Train) | transform(Test)"]
-    E --> F1["Model 1: Balanced Random Forest\n(class_weight='balanced')"]
-    E --> F2["Model 2: Cost-Sensitive XGBoost\n(scale_pos_weight = neg/pos ≈ 28.5)"]
-    F1 --> G["Comparative Evaluation\nConfusion Matrix | ROC-AUC | F1 | Recall"]
-    F2 --> G
-    G --> H["Continuous Probability Scoring\n& Operational Risk Tiering"]
-    H --> I["CMMS Export\npredictive_maintenance_risk_predictions.csv"]
+    E --> F["5-Fold Stratified Cross-Validation\nRobustness & Variance Audit"]
+    F --> G1["Model 1: Balanced Random Forest\n(class_weight='balanced')"]
+    F --> G2["Model 2: Cost-Sensitive XGBoost\n(scale_pos_weight = neg/pos ≈ 28.5)"]
+    G1 --> H["Model Artifact Serialization\nmodels/*.joblib"]
+    G2 --> H
+    H --> I["Diagnostic Evaluation\nreports/figures/*.png"]
+    H --> J["Continuous Probability Scoring\n& Operational Risk Tiering"]
+    J --> K["CMMS Export\ndata/processed/*.csv"]
+    H --> L["Edge CLI Inference Script\nsrc/predict.py"]
 ```
 
 ---
@@ -51,15 +54,28 @@ Industrial rotating machinery failures obey the fundamental laws of mechanics, t
 
 ---
 
-## 📊 Quantitative Model Performance
+## 🔬 Model Validation & Generalization Audit
 
-Evaluated on an unseen test set ($N = 2,000$ samples, containing 68 actual mechanical failure events):
+### 1. 5-Fold Stratified Cross-Validation (Training Partition, $N = 8,000$)
+To ensure models do not overfit to any specific train-test split, we performed 5-Fold Stratified Cross-Validation:
+
+| Metric | Random Forest (5-Fold Mean ± Std) | XGBoost (5-Fold Mean ± Std) | Generalization Verdict |
+| :--- | :---: | :---: | :--- |
+| **ROC-AUC** | **0.9799 ± 0.0112** | **0.9787 ± 0.0125** | Excellent and highly stable class separability across all folds. |
+| **Recall (Class 1)** | **0.8265 ± 0.0478** | **0.8412 ± 0.0402** | Consistently detects > 82% of rare failures. |
+| **Precision (Class 1)** | **0.8176 ± 0.0505** | **0.6406 ± 0.0411** | Low false alarm rate across all partitions. |
+| **F1-Score (Class 1)** | **0.8207 ± 0.0378** | **0.7255 ± 0.0206** | Balanced harmonic performance with low variance ($\sigma \le 0.04$). |
+| **Accuracy** | **0.9877 ± 0.0027** | **0.9784 ± 0.0025** | High baseline fidelity across normal machine operating cycles. |
+
+---
+
+### 2. Quantitative Performance on Unseen Test Set ($N = 2,000$, 68 Failures)
 
 | Performance Metric | Random Forest (Balanced) | XGBoost (Cost-Sensitive) | Operational Impact in Mining |
 | :--- | :---: | :---: | :--- |
 | **Overall Accuracy** | **98.75%** | **97.90%** | High baseline fidelity across normal operation cycles. |
 | **Failure Recall (Sensitivity)** | **85.29%** | **85.29%** | **Catches 58 out of 68 actual catastrophic breakdowns.** |
-| **Failure Precision** | **79.45%** | **64.44%** | RF achieves low false-alarm frequency ($15$ FPs vs $32$ in XGB). |
+| **Failure Precision** | **79.45%** | **64.44%** | RF achieves very low false-alarm frequency ($15$ FPs vs $32$ in XGB). |
 | **F1-Score (Failure Class)** | **0.8227** | **0.7342** | Strong harmonic balance between sensitivity and reliability. |
 | **ROC-AUC Score** | **0.9851** | **0.9763** | Near-perfect class separation across all operating thresholds. |
 
@@ -68,10 +84,10 @@ Evaluated on an unseen test set ($N = 2,000$ samples, containing 68 actual mecha
 ## 📈 Visual Diagnostics
 
 ### 1. Model Evaluation Metrics (Confusion Matrices & Comparative ROC Curves)
-![Model Evaluation Metrics](model_evaluation_metrics.png)
+![Model Evaluation Metrics](reports/figures/model_evaluation_metrics.png)
 
 ### 2. Feature Importance Diagnostics (Primary Failure Drivers)
-![Feature Importance Analysis](feature_importance_analysis.png)
+![Feature Importance Analysis](reports/figures/feature_importance_analysis.png)
 
 > **Key Engineering Insight:** Rotational speed anomalies, shaft torque, and the engineered **Mechanical Power** and **Wear Strain Index** account for **> 85% of total predictive power**, proving that interaction features effectively uncover pre-failure degradation signatures.
 
@@ -88,23 +104,80 @@ Binary classification (0 or 1) is insufficient for control room dispatchers. Pre
 | 🔴 **High Risk** | $P \ge 0.65$ | **2.75%** ($55$) | **Critical alarm.** Immediate controlled load reduction and emergency mechanical inspection (**captures 96.36% true failures**). |
 
 Test set predictions with complete telemetry attributes, continuous failure probabilities, and assigned risk tiers are exported to:
-📄 [`predictive_maintenance_risk_predictions.csv`](predictive_maintenance_risk_predictions.csv)
+📄 [`data/processed/predictive_maintenance_risk_predictions.csv`](data/processed/predictive_maintenance_risk_predictions.csv)
+
+---
+
+## 💻 Edge Inference CLI (`src/predict.py`)
+
+A production-ready command-line interface allows operations and maintenance personnel to evaluate equipment in real time without opening Jupyter:
+
+### Single Asset Telemetry Scoring
+```bash
+python src/predict.py --type M --air-temp 298.2 --process-temp 308.7 --speed 1400 --torque 65.5 --tool-wear 210
+```
+
+**Output:**
+```json
+{
+  "model_used": "Random Forest (Balanced)",
+  "telemetry_input": {
+    "variant": "M",
+    "air_temperature_K": 298.2,
+    "process_temperature_K": 308.7,
+    "rotational_speed_rpm": 1400.0,
+    "torque_Nm": 65.5,
+    "tool_wear_min": 210.0
+  },
+  "engineered_metrics": {
+    "mechanical_power_W": 9602.8,
+    "delta_temperature_K": 10.5,
+    "wear_strain_index": 13755.0
+  },
+  "prediction": {
+    "failure_predicted": true,
+    "failure_probability": 0.9533,
+    "risk_tier": "High Risk",
+    "alert_level": "RED",
+    "prescribed_action": "CRITICAL ALARM. High risk of catastrophic mechanical seizure. Initiate controlled load reduction and dispatch emergency mechanical maintenance crew."
+  }
+}
+```
+
+### Batch Scoring from External CSV
+```bash
+python src/predict.py --input-file data/raw/predictive_maintenance.csv --output-file data/processed/batch_scored.csv
+```
 
 ---
 
 ## 📁 Repository Directory Structure
 
 ```plaintext
-├── mining_predictive_maintenance.ipynb    # Main industrial ML Jupyter Notebook (fully executed)
-├── predictive_maintenance.csv             # Raw sensor telemetry dataset
-├── predictive_maintenance_risk_predictions.csv # Test set predictions with risk tiers for CMMS
-├── model_evaluation_metrics.png           # High-resolution confusion matrices & ROC curves
-├── feature_importance_analysis.png        # High-resolution feature importance rankings
-├── requirements.txt                       # Reproducible environment specifications
-├── .gitignore                             # Git ignore rules for clean version control
-├── build_notebook.py                      # Automated script to reconstruct notebook
-├── execute_notebook.py                    # Automated runner to re-execute notebook headlessly
-└── README.md                              # Technical project documentation
+mining-predictive-maintenance/
+├── data/
+│   ├── raw/
+│   │   └── predictive_maintenance.csv              # Raw telemetry dataset
+│   └── processed/
+│       └── predictive_maintenance_risk_predictions.csv # Predictions with risk tiers for CMMS
+├── models/
+│   ├── random_forest_model.joblib                  # Serialized Balanced Random Forest
+│   ├── xgboost_model.joblib                        # Serialized Cost-Sensitive XGBoost
+│   └── scaler.joblib                               # Serialized StandardScaler
+├── notebooks/
+│   └── mining_predictive_maintenance.ipynb         # Full industrial ML Jupyter Notebook
+├── reports/
+│   └── figures/
+│       ├── model_evaluation_metrics.png            # Confusion matrices & ROC curves
+│       └── feature_importance_analysis.png         # Feature importance bar charts
+├── src/
+│   ├── __init__.py                                 # Package initialization
+│   ├── features.py                                 # Modular feature engineering logic
+│   └── predict.py                                  # Standalone CLI inference engine
+├── requirements.txt                                # Reproducible dependency specifications
+├── .gitignore                                      # Standard Git ignore configurations
+├── LICENSE                                         # MIT License
+└── README.md                                       # Technical project documentation
 ```
 
 ---
@@ -113,7 +186,7 @@ Test set predictions with complete telemetry attributes, continuous failure prob
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/<your-username>/mining-predictive-maintenance.git
+git clone https://github.com/jhodifachriansyah15/mining-predictive-maintenance.git
 cd mining-predictive-maintenance
 ```
 
@@ -130,17 +203,14 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Launch or Re-Execute the Notebook
+### 3. Launch the Interactive Notebook
 ```bash
-# Launch interactive Jupyter environment
-jupyter notebook mining_predictive_maintenance.ipynb
-
-# Or execute headlessly via command line:
-python execute_notebook.py
+jupyter notebook notebooks/mining_predictive_maintenance.ipynb
 ```
 
 ---
 
-## 📄 License
+## 📄 License & Author
 
-This project is licensed under the [MIT License](LICENSE).
+- **Author:** Jhodi Fachriansyah ([@jhodifachriansyah15](https://github.com/jhodifachriansyah15))
+- **License:** Distributed under the [MIT License](LICENSE).
