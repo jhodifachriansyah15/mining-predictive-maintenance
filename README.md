@@ -210,7 +210,19 @@ jupyter notebook notebooks/mining_predictive_maintenance.ipynb
 
 ---
 
+## 📚 Data Source & Attribution
+
+The synthetic telemetry dataset (`predictive_maintenance.csv`) used in this project is sourced from Kaggle:
+- **Dataset:** [AI4I 2020 Predictive Maintenance Dataset](https://www.kaggle.com/datasets/shivamb/machine-predictive-maintenance-classification)
+- **Original Authors & Research Citation:** 
+  > Stephan Matzka, "Explainable Artificial Intelligence for Predictive Maintenance Applications," 
+  > *Third International Conference on Artificial Intelligence for Industries (AI4I)*, 2020, pp. 69-74.
+- **Data License:** [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)
+
+---
+
 ## 📄 License & Author
 
 - **Author:** Jhodi Fachriansyah ([@jhodifachriansyah15](https://github.com/jhodifachriansyah15))
-- **License:** Distributed under the [MIT License](LICENSE).
+- **Source Code:** Distributed under the [MIT License](LICENSE).
+- **Dataset:** Distributed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

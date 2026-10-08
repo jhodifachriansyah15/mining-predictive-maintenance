@@ -19,3 +19,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+### Dataset Notice
+The dataset included in this repository (`predictive_maintenance.csv`) is sourced from Kaggle (AI4I 2020 Predictive Maintenance Dataset) and is licensed under the Creative Commons Attribution 4.0 International (CC BY 4.0) license. The MIT License above applies strictly to the machine learning source code, pipelines, and technical documentation authored in this repository.
